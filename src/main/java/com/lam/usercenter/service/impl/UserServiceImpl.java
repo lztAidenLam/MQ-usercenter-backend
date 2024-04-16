@@ -3,6 +3,8 @@ package com.lam.usercenter.service.impl;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.lam.usercenter.common.ErrorCode;
+import com.lam.usercenter.exception.BusinessException;
 import com.lam.usercenter.mapper.UserMapper;
 import com.lam.usercenter.model.entity.User;
 import com.lam.usercenter.service.UserService;
@@ -45,29 +47,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         5. 账户不包含特殊字符
         6. 密码和校验秘密相同
          */
-        // todo 统一返回异常信息
         if (StrUtil.isAllBlank(userAccount, userPassword, checkPassword)) {
-            return (long) -1;
-        }
-        if (userAccount.length() <= 4){
-            return (long) -1;
-        }
-        if (userPassword.length() < 8) {
-            return (long) -1;
-        }
-        String validRule = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%…… &*（）——+|{}【】‘；：”“’。，、？]";
-        Matcher matcher = Pattern.compile(validRule).matcher(userAccount);
-        if (matcher.find()) {
-            return (long) -1;
+            throw new BusinessException(ErrorCode.NULL_ERROR);
         }
         if (!userPassword.equals(checkPassword)){
-            return (long) -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        checkLegality(userAccount, userPassword);
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(User::getUserAccount, userAccount);
         long count = this.count(queryWrapper);
         if (count > 0) {
-            return (long) -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
 
         // 密码加密
@@ -93,21 +84,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         3. 密码长度不小于8位
         4. 账户不包含特殊字符
          */
-        // todo 统一返回异常信息
         if (StrUtil.isAllBlank(userAccount, userPassword)) {
-            return null;
+            throw new BusinessException(ErrorCode.NULL_ERROR);
         }
-        if (userAccount.length() <= 4){
-            return null;
-        }
-        if (userPassword.length() < 8) {
-            return null;
-        }
-        String validRule = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%…… &*（）——+|{}【】‘；：”“’。，、？]";
-        Matcher matcher = Pattern.compile(validRule).matcher(userAccount);
-        if (matcher.find()) {
-            return null;
-        }
+        checkLegality(userAccount, userPassword);
 
         // 跟数据库校验账号密码是否输入正确
         String encoderPassword = DigestUtils.md5DigestAsHex((SALT + userPassword)
@@ -118,7 +98,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         User user = this.getOne(queryWrapper);
         if (user == null) {
             log.info("user login failed, userAccount or userPassword is wrong!");
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
 
         // 用户脱敏，返回用户信息
@@ -127,6 +107,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 记录用户的登录态（session),将其存在服务器上
         request.getSession().setAttribute(USER_LOGIN_STATUS, safetyUser); //todo
         return safetyUser;
+    }
+
+    private void checkLegality(String userAccount, String userPassword) {
+        if (userAccount.length() <= 4){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号长度不小于3个字符");
+        }
+        if (userPassword.length() < 8) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度不小于8个字符");
+        }
+        String validRule = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%…… &*（）——+|{}【】‘；：”“’。，、？]";
+        Matcher matcher = Pattern.compile(validRule).matcher(userAccount);
+        if (matcher.find()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号不能包含特殊符号");
+        }
     }
 
     @Override

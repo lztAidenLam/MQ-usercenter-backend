@@ -1,5 +1,9 @@
 package com.lam.usercenter.controller;
 
+import com.lam.usercenter.common.BaseResponse;
+import com.lam.usercenter.common.ErrorCode;
+import com.lam.usercenter.common.ResultUtils;
+import com.lam.usercenter.exception.BusinessException;
 import com.lam.usercenter.model.domain.request.UserLoginRequest;
 import com.lam.usercenter.model.domain.request.UserRegisterRequest;
 import com.lam.usercenter.model.entity.User;
@@ -28,67 +32,69 @@ public class UserController {
     private UserService userService;
 
     @PostMapping("/register")
-    public Long userRegister(@RequestBody UserRegisterRequest userRegisterRequest) {
+    public BaseResponse<Long> userRegister(@RequestBody UserRegisterRequest userRegisterRequest) {
         if (userRegisterRequest == null) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         String userAccount = userRegisterRequest.getUserAccount();
         String userPassword = userRegisterRequest.getUserPassword();
         String checkPassword = userRegisterRequest.getCheckPassword();
-        return userService.userRegister(userAccount, userPassword, checkPassword);
+        Long userId = userService.userRegister(userAccount, userPassword, checkPassword);
+        return ResultUtils.success(userId);
     }
 
     @PostMapping("/login")
-    public User userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
+    public BaseResponse<User> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
         if (userLoginRequest == null) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         String userAccount = userLoginRequest.getUserAccount();
         String userPassword = userLoginRequest.getUserPassword();
         User user = userService.userLogin(userAccount, userPassword, request);
-        return user;
+        return ResultUtils.success(user);
     }
 
     @GetMapping("/logout")
-    public Integer userLogout(HttpServletRequest request) {
+    public BaseResponse<Integer> userLogout(HttpServletRequest request) {
         if (request == null) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        return userService.userLogout(request);
+        return ResultUtils.success(userService.userLogout(request));
     }
 
     @GetMapping("/getAllUser")
-    public List<User> getAllUser(HttpServletRequest request) {
+    public BaseResponse<List<User>> getAllUser(HttpServletRequest request) {
         if (!isAdmin(request)) {
-            return new ArrayList<>();
+            throw new BusinessException(ErrorCode.NO_AUTH);
         }
 
-        return userService.selectAll();
+        return ResultUtils.success(userService.selectAll());
     }
 
 
 
     @PostMapping("/deleteOne")
-    public boolean deleteOne(@RequestBody long id, HttpServletRequest request) {
+    public BaseResponse<Boolean> deleteOne(@RequestBody long id, HttpServletRequest request) {
         if (!isAdmin(request)) {
-            return false;
+            throw new BusinessException(ErrorCode.NO_AUTH);
         }
 
         if (id <= 0) {
-            return false;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        return userService.removeById(id);
+        return ResultUtils.success(userService.removeById(id));
     }
 
 
     @GetMapping("/current")
-    public User getCurrentUser(HttpServletRequest request) {
+    public BaseResponse<User> getCurrentUser(HttpServletRequest request) {
         User currentUser = (User) request.getSession().getAttribute(USER_LOGIN_STATUS);
         if (currentUser == null){
-            return null;
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
         Long userId = currentUser.getId();
-        return userService.getSafetyUser(userService.getById(userId));
+        User safetyUser = userService.getSafetyUser(userService.getById(userId));
+        return ResultUtils.success(safetyUser);
     }
 
 
